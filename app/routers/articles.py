@@ -6,13 +6,54 @@ from google.cloud import firestore
 from fastapi.responses import JSONResponse
 from ..firebase import db
 from ..models import ArticleOut, generate_slug
-from ..dependencies import verify_firebase_token
 from ..utils import upload_file_to_storage
 from google.cloud.firestore_v1 import Increment
+from google.cloud.firestore_v1.base_document import DocumentSnapshot
 
 router = APIRouter()
 
 ARTICLES_COLLECTION = "articles"
+
+
+def convert_firestore_timestamp(timestamp):
+    """Convert Firestore timestamp to regular datetime"""
+    if hasattr(timestamp, 'isoformat'):
+        # If it's already a datetime-like object
+        return timestamp
+    elif hasattr(timestamp, 'timestamp'):
+        # Convert to datetime
+        return timestamp
+    return timestamp
+
+
+def prepare_article_data(doc: DocumentSnapshot):
+    """Prepare article data for response, converting timestamps"""
+    data = doc.to_dict()
+    data["id"] = doc.id
+    
+    # Ensure all required fields are present
+    if "author_id" not in data:
+        data["author_id"] = "anonymous"
+    if "comments_count" not in data:
+        data["comments_count"] = 0
+    if "likes_count" not in data:
+        data["likes_count"] = 0
+    if "shares_count" not in data:
+        data["shares_count"] = 0
+    if "media_urls" not in data:
+        data["media_urls"] = []
+    if "tags" not in data:
+        data["tags"] = []
+    if "keywords" not in data:
+        data["keywords"] = []
+    
+    # Convert Firestore timestamps to regular datetime
+    if "created_at" in data:
+        data["created_at"] = convert_firestore_timestamp(data["created_at"])
+    if "updated_at" in data:
+        data["updated_at"] = convert_firestore_timestamp(data["updated_at"])
+    
+    return data
 
 
 @router.post("/", response_model=ArticleOut)
@@ -38,11 +79,11 @@ async def create_article(
     slug = generate_slug(title)
     doc_ref = db.collection(ARTICLES_COLLECTION).document(slug)
     article_data = {
-        "id": slug,  # Add id field
+        "id": slug,
         "slug": slug,
         "title": title,
         "content": content,
-        "author_id": author_id,  # Add author_id
+        "author_id": author_id,
         "thumbnail_url": thumbnail_url,
         "media_urls": media_urls,
         "tags": tags_list,
@@ -52,19 +93,13 @@ async def create_article(
         "created_at": now,
         "updated_at": now,
         "likes_count": 0,
-        "comments_count": 0,  # Fixed: lowercase 'c'
+        "comments_count": 0,
         "shares_count": 0
     }
     doc_ref.set(article_data)
     doc = doc_ref.get()
     if doc.exists:
-        data = doc.to_dict()
-        # Ensure all required fields are present
-        data["id"] = slug
-        if "author_id" not in data:
-            data["author_id"] = author_id
-        if "comments_count" not in data:
-            data["comments_count"] = 0
+        data = prepare_article_data(doc)
         return ArticleOut(**data)
     else:
         raise HTTPException(status_code=500, detail="Failed to create article")
@@ -75,15 +110,8 @@ async def get_article(slug: str):
     doc = db.collection(ARTICLES_COLLECTION).document(slug).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Article not found")
-    data = doc.to_dict()
-    # Ensure all required fields are present
-    data["id"] = doc.id
-    if "author_id" not in data:
-        data["author_id"] = "anonymous"
-    if "comments_count" not in data:
-        data["comments_count"] = 0
-    response = JSONResponse(content=data)
-    response.headers["Cache-Control"] = "public, max-age=3600"
+    
+    data = prepare_article_data(doc)
     return ArticleOut(**data)
 
 
@@ -104,13 +132,8 @@ def list_articles(
             match = q.lower() in d.get("title", "").lower() or any(q.lower() in t.lower() for t in d.get("tags", []))
 
             if match:
-                # Ensure all required fields are present
-                d["id"] = s.id
-                if "author_id" not in d:
-                    d["author_id"] = "anonymous"
-                if "comments_count" not in d:
-                    d["comments_count"] = 0
-                results.append(ArticleOut(**d))
+                data = prepare_article_data(s)
+                results.append(ArticleOut(**data))
         return results[:page_size]
     
     if page_token:
@@ -125,14 +148,8 @@ def list_articles(
         query = col.limit(page_size)
     
     articles = []
-    for d in query.stream():
-        data = d.to_dict()
-        # Ensure all required fields are present
-        data["id"] = d.id
-        if "author_id" not in data:
-            data["author_id"] = "anonymous"
-        if "comments_count" not in data:
-            data["comments_count"] = 0
+    for doc in query.stream():
+        data = prepare_article_data(doc)
         articles.append(ArticleOut(**data))
     
     return articles
@@ -172,13 +189,7 @@ async def update_article(
     doc_ref.update(updates)
     
     updated_doc = doc_ref.get()
-    data = updated_doc.to_dict()
-    # Ensure all required fields are present
-    data["id"] = updated_doc.id
-    if "author_id" not in data:
-        data["author_id"] = "anonymous"
-    if "comments_count" not in data:
-        data["comments_count"] = 0
+    data = prepare_article_data(updated_doc)
     
     return ArticleOut(**data)
 
