@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, Form, Header, HTTPException, Query
 from typing import List, Optional
 from datetime import datetime, timezone
+from google.cloud import firestore
 
 from fastapi.responses import JSONResponse
 from ..firebase import db
@@ -15,9 +16,7 @@ ARTICLES_COLLECTION = "articles"
 
 
 @router.post("/", response_model=ArticleOut)
-async def create_article(title: str = Form(...), content: str = Form(...), tags: Optional[str] = Form(""), meta_title: Optional[str] = Form(None), meta_description: Optional[str] = Form(None), keywords: Optional[str] = Form(""), thumbnail: Optional[UploadFile] = File(None), media: Optional[List[UploadFile]] = File(None), authorization: str = Header(...)):
-    user = verify_firebase_token(authorization)
-    author_id = user["uid"]
+async def create_article(title: str = Form(...), content: str = Form(...), tags: Optional[str] = Form(""), meta_title: Optional[str] = Form(None), meta_description: Optional[str] = Form(None), keywords: Optional[str] = Form(""), thumbnail: Optional[UploadFile] = File(None), media: Optional[List[UploadFile]] = File(None)):
     tags_list = [t.strip() for t in tags.split(",")] if tags else []
     keywords = [k.strip() for k in keywords.split(",")] if keywords else []
 
@@ -31,7 +30,6 @@ async def create_article(title: str = Form(...), content: str = Form(...), tags:
         "slug": slug,
         "title": title,
         "content": content,
-        "author_id": author_id,
         "thumbnail_url": thumbnail_url,
         "media_urls": media_urls,
         "tags": tags_list,
@@ -62,7 +60,8 @@ async def get_article(slug: str):
 
 @router.get("/", response_model=List[ArticleOut])
 def list_articles( q: Optional[str] = Query(None), page_size: int = Query(10, ge=1, le=100), page_token: Optional[str] = Query(None)):
-    col = db.collection(ARTICLES_COLLECTION).order_by("created_at", direction=db.Query.DESCENDING)
+    # FIXED: Use firestore.Query directly
+    col = db.collection(ARTICLES_COLLECTION).order_by("created_at", direction=firestore.Query.DESCENDING)
     if q:
         snapshot = col.limit(100).stream()
         results = []

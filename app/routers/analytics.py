@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta, timezone
+from google.cloud import firestore
 from ..firebase import db
 
 router = APIRouter()

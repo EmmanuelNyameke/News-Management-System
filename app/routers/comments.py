@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Header
 from typing import List
 from datetime import datetime, timezone
+from google.cloud import firestore
 
 from .articles import ARTICLES_COLLECTION
 from ..firebase import db
@@ -31,5 +32,6 @@ def get_comments(article_id: str, limit: int = 50):
     article_ref = db.collection(ARTICLES_COLLECTION).document(article_id)
     if not article_ref.get().exists:
         raise HTTPException(status_code=404, detail="Article not found")
-    q = article_ref.collection(COMMENTS_SUBCOL).order_by("created_at", direction=db.Query.DESCENDING).limit(limit)
+    # FIXED: Use firestore.Query directly
+    q = article_ref.collection(COMMENTS_SUBCOL).order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit)
     return [CommentOut(id=c.id, **c.to_dict()) for c in q.stream()]
