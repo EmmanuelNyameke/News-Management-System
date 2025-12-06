@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+firebase-admin
+google-cloud-storage
+python-dotenv
+pydantic
+python-slugify
+python-multipart
+google-cloud-storage
