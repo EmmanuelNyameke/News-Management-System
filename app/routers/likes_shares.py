@@ -35,5 +35,5 @@ def share_article(article_id: str):
         raise HTTPException(status_code=404, detail="Article not found")
     
     article_ref.update({"shares_count": Increment(1)})
-    share_url = f"https://vikayblog.com/articles/{article_id}"
+    share_url = f"https://vikayblog.com/article-detail.html?id={article_id}"
     return {"shared": True, "share_url": share_url}
