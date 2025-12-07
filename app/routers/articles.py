@@ -112,7 +112,13 @@ async def get_article(slug: str):
         raise HTTPException(status_code=404, detail="Article not found")
     
     data = prepare_article_data(doc)
-    return ArticleOut(**data)
+    
+    # Convert to ArticleOut model
+    article = ArticleOut(**data)
+    
+    # You can add share data to the response if needed
+    # For now, just return the article
+    return article
 
 
 @router.get("/", response_model=List[ArticleOut])
