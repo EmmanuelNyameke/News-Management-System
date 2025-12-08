@@ -31,9 +31,21 @@ def like_article(article_id: str):
 @router.post("/{article_id}/share")
 def share_article(article_id: str):
     article_ref = db.collection(ARTICLES_COLLECTION).document(article_id)
-    if not article_ref.get().exists:
+    article_doc = article_ref.get()
+    
+    if not article_doc.exists:
         raise HTTPException(status_code=404, detail="Article not found")
     
+    article_data = article_doc.to_dict()
+    
+    # Increment share count
     article_ref.update({"shares_count": Increment(1)})
-    share_url = f"https://vikayblog.com/article-detail.html?id={article_id}"
-    return {"shared": True, "share_url": share_url}
+    
+    # Return comprehensive share data
+    return {
+        "shared": True,
+        "share_url": f"https://vikayblog.com/article-detail.html?id={article_id}",
+        "title": article_data.get("title", "Article"),
+        "description": article_data.get("meta_description", article_data.get("content", "")[:150]),
+        "image": article_data.get("thumbnail_url", "https://vikayblog.com/vikayblog_app_icon.png")
+    }
