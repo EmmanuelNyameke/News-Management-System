@@ -41,10 +41,10 @@ def share_article(article_id: str):
     # Increment share count
     article_ref.update({"shares_count": Increment(1)})
     
-    # Get the best image for sharing
+    # Get thumbnail - prefer article thumbnail
     thumbnail_url = article_data.get("thumbnail_url")
     
-    # If no thumbnail, look for images in media_urls
+    # If no thumbnail, look in media_urls
     if not thumbnail_url and article_data.get("media_urls"):
         image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg')
         for media_url in article_data.get("media_urls", []):
@@ -57,5 +57,5 @@ def share_article(article_id: str):
         "share_url": f"/article-detail.html?id={article_id}",  # Relative URL
         "title": article_data.get("title", "Article"),
         "description": article_data.get("meta_description", article_data.get("content", "")[:150]),
-        "image": thumbnail_url  # Return the actual image URL
+        "image": thumbnail_url  # Will be None if no image
     }
