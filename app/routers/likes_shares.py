@@ -10,7 +10,7 @@ LIKES_SUBCOL = "likes"
 @router.post("/{article_id}/like")
 def like_article(article_id: str):
     # Removed auth requirement
-    user_id = "anonymous"  # Default user ID
+    user_id = "ViKay"  # Default user ID
     article_ref = db.collection(ARTICLES_COLLECTION).document(article_id)
     if not article_ref.get().exists:
         raise HTTPException(status_code=404, detail="Article not found")
@@ -41,11 +41,21 @@ def share_article(article_id: str):
     # Increment share count
     article_ref.update({"shares_count": Increment(1)})
     
-    # Return comprehensive share data
+    # Get the best image for sharing
+    thumbnail_url = article_data.get("thumbnail_url")
+    
+    # If no thumbnail, look for images in media_urls
+    if not thumbnail_url and article_data.get("media_urls"):
+        image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg')
+        for media_url in article_data.get("media_urls", []):
+            if media_url and any(media_url.lower().endswith(ext) for ext in image_extensions):
+                thumbnail_url = media_url
+                break
+    
     return {
         "shared": True,
-        "share_url": f"https://vikayblog.com/article-detail.html?id={article_id}",
+        "share_url": f"/article-detail.html?id={article_id}",  # Relative URL
         "title": article_data.get("title", "Article"),
         "description": article_data.get("meta_description", article_data.get("content", "")[:150]),
-        "image": article_data.get("thumbnail_url", "https://vikayblog.com/vikayblog_app_icon.png")
+        "image": thumbnail_url  # Return the actual image URL
     }
